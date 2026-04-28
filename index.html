@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>إدارة العمال</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
 body {
     font-family: Arial;
@@ -60,12 +64,14 @@ button {
 
     <input type="text" id="name" placeholder="اسم العامل">
     
-    <select id="job">
-        <option>نقاش</option>
-        <option>كهربائي</option>
-        <option>سباك</option>
-        <option>غيره</option>
+    <select id="job" onchange="checkJob()">
+        <option value="نقاش">نقاش</option>
+        <option value="كهربائي">كهربائي</option>
+        <option value="سباك">سباك</option>
+        <option value="other">غيره</option>
     </select>
+
+    <input type="text" id="customJob" placeholder="اكتب المهنة" style="display:none;">
 
     <input type="number" id="paid" placeholder="المدفوع">
     <input type="number" id="remaining" placeholder="الباقي">
@@ -76,29 +82,47 @@ button {
 
     <div class="summary" id="summary"></div>
 
-    <button class="export" onclick="exportCSV()">📤 تصدير Excel</button>
+    <button class="export" onclick="exportPDF()">📄 تصدير PDF</button>
+    <button class="export" onclick="exportImage()">🖼️ حفظ كصورة</button>
     <button class="toggle" onclick="toggleDark()">🌙 Dark Mode</button>
 
     <div id="list"></div>
 </div>
 
+<!-- بوكس مخفي للتصدير -->
+<div id="exportBox" style="position:absolute; left:-9999px; width:300px; background:white; padding:15px; border-radius:10px;"></div>
+
 <script>
 let workers = JSON.parse(localStorage.getItem("workers")) || [];
 let editIndex = -1;
+let lastWorker = null;
+
+// inputs
+const nameInput = document.getElementById("name");
+const jobInput = document.getElementById("job");
+const customJobInput = document.getElementById("customJob");
+const paidInput = document.getElementById("paid");
+const remainingInput = document.getElementById("remaining");
+
+function checkJob(){
+    customJobInput.style.display = jobInput.value === "other" ? "block" : "none";
+}
 
 function save() {
     localStorage.setItem("workers", JSON.stringify(workers));
 }
 
 function addWorker() {
-    let name = nameInput.value;
-    let job = jobInput.value;
+    let name = nameInput.value.trim();
+    let job = jobInput.value === "other" ? customJobInput.value.trim() : jobInput.value;
     let paid = +paidInput.value || 0;
     let remaining = +remainingInput.value || 0;
 
-    if(name === "") return alert("اكتب اسم");
+    if(name === "") return alert("اكتب اسم العامل");
+    if(job === "") return alert("اكتب المهنة");
 
     let data = {name, job, paid, remaining};
+    lastWorker = data;
 
     if(editIndex === -1){
         workers.push(data);
@@ -114,6 +138,9 @@ function addWorker() {
 
 function clearInputs(){
     nameInput.value = "";
+    jobInput.value = "نقاش";
+    customJobInput.value = "";
+    customJobInput.style.display = "none";
     paidInput.value = "";
     remainingInput.value = "";
 }
@@ -129,9 +156,19 @@ function deleteWorker(i){
 function editWorker(i){
     let w = workers[i];
     nameInput.value = w.name;
-    jobInput.value = w.job;
     paidInput.value = w.paid;
     remainingInput.value = w.remaining;
+
+    if(["نقاش","كهربائي","سباك"].includes(w.job)){
+        jobInput.value = w.job;
+        customJobInput.style.display = "none";
+    } else {
+        jobInput.value = "other";
+        customJobInput.style.display = "block";
+        customJobInput.value = w.job;
+    }
+
+    lastWorker = w;
     editIndex = i;
 }
 
@@ -168,28 +205,57 @@ function display(){
     `;
 }
 
-function exportCSV(){
-    let csv = "الاسم,الوظيفة,المدفوع,الباقي\n";
-    workers.forEach(w=>{
-        csv += `${w.name},${w.job},${w.paid},${w.remaining}\n`;
-    });
+// تجهيز بيانات العامل للتصدير
+function prepareExport(){
+    if(!lastWorker){
+        alert("مفيش عامل للتصدير");
+        return null;
+    }
 
-    let blob = new Blob([csv], {type: "text/csv"});
+    let box = document.getElementById("exportBox");
+
+    box.innerHTML = `
+        <h3>${lastWorker.name}</h3>
+        <p>المهنة: ${lastWorker.job}</p>
+        <p>💸 المدفوع: ${lastWorker.paid} جنيه</p>
+        <p>📌 الباقي: ${lastWorker.remaining} جنيه</p>
+        <p>📊 الإجمالي: ${lastWorker.paid + lastWorker.remaining} جنيه</p>
+    `;
+
+    return box;
+}
+
+// PDF
+async function exportPDF(){
+    const { jsPDF } = window.jspdf;
+    let element = prepareExport();
+    if(!element) return;
+
+    let canvas = await html2canvas(element);
+    let img = canvas.toDataURL("image/png");
+
+    let pdf = new jsPDF();
+    pdf.addImage(img, "PNG", 10, 10, 180, (canvas.height*180)/canvas.width);
+    pdf.save("worker.pdf");
+}
+
+// صورة
+async function exportImage(){
+    let element = prepareExport();
+    if(!element) return;
+
+    let canvas = await html2canvas(element);
+    let img = canvas.toDataURL("image/png");
+
     let a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "workers.csv";
+    a.href = img;
+    a.download = "worker.png";
     a.click();
 }
 
 function toggleDark(){
     document.body.classList.toggle("dark");
 }
-
-// inputs
-const nameInput = document.getElementById("name");
-const jobInput = document.getElementById("job");
-const paidInput = document.getElementById("paid");
-const remainingInput = document.getElementById("remaining");
 
 display();
 </script>
