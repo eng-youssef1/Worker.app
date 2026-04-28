@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>إدارة العمال</title>
+<style>
+body {
+    font-family: Arial;
+    direction: rtl;
+    background: #f0f0f0;
+    padding: 10px;
+    transition: 0.3s;
+}
+.dark {
+    background: #1e1e1e;
+    color: white;
+}
+.container {
+    max-width: 600px;
+    margin: auto;
+}
+input, select, button {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 8px;
+    border: none;
+}
+.worker {
+    background: white;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 10px;
+}
+.dark .worker {
+    background: #2c2c2c;
+}
+button {
+    cursor: pointer;
+}
+.delete { background: red; color: white; }
+.edit { background: orange; color: white; }
+.export { background: green; color: white; }
+.toggle { background: black; color: white; }
+.summary {
+    background: #ddd;
+    padding: 10px;
+    border-radius: 10px;
+}
+.dark .summary {
+    background: #444;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>💼 إدارة العمال</h2>
+
+    <input type="text" id="name" placeholder="اسم العامل">
+    
+    <select id="job">
+        <option>نقاش</option>
+        <option>كهربائي</option>
+        <option>سباك</option>
+        <option>غيره</option>
+    </select>
+
+    <input type="number" id="paid" placeholder="المدفوع">
+    <input type="number" id="remaining" placeholder="الباقي">
+
+    <button onclick="addWorker()">➕ إضافة</button>
+
+    <input type="text" id="search" placeholder="🔍 بحث..." oninput="display()">
+
+    <div class="summary" id="summary"></div>
+
+    <button class="export" onclick="exportCSV()">📤 تصدير Excel</button>
+    <button class="toggle" onclick="toggleDark()">🌙 Dark Mode</button>
+
+    <div id="list"></div>
+</div>
+
+<script>
+let workers = JSON.parse(localStorage.getItem("workers")) || [];
+let editIndex = -1;
+
+function save() {
+    localStorage.setItem("workers", JSON.stringify(workers));
+}
+
+function addWorker() {
+    let name = nameInput.value;
+    let job = jobInput.value;
+    let paid = +paidInput.value || 0;
+    let remaining = +remainingInput.value || 0;
+
+    if(name === "") return alert("اكتب اسم");
+
+    let data = {name, job, paid, remaining};
+
+    if(editIndex === -1){
+        workers.push(data);
+    } else {
+        workers[editIndex] = data;
+        editIndex = -1;
+    }
+
+    save();
+    clearInputs();
+    display();
+}
+
+function clearInputs(){
+    nameInput.value = "";
+    paidInput.value = "";
+    remainingInput.value = "";
+}
+
+function deleteWorker(i){
+    if(confirm("متأكد؟")){
+        workers.splice(i,1);
+        save();
+        display();
+    }
+}
+
+function editWorker(i){
+    let w = workers[i];
+    nameInput.value = w.name;
+    jobInput.value = w.job;
+    paidInput.value = w.paid;
+    remainingInput.value = w.remaining;
+    editIndex = i;
+}
+
+function display(){
+    let list = document.getElementById("list");
+    let search = document.getElementById("search").value.toLowerCase();
+
+    list.innerHTML = "";
+
+    let totalPaid = 0;
+    let totalRemaining = 0;
+
+    workers.forEach((w,i)=>{
+        if(!w.name.toLowerCase().includes(search)) return;
+
+        totalPaid += w.paid;
+        totalRemaining += w.remaining;
+
+        list.innerHTML += `
+        <div class="worker">
+            <strong>${w.name}</strong> (${w.job})<br>
+            💸 المدفوع: ${w.paid} جنيه<br>
+            📌 الباقي: ${w.remaining} جنيه<br>
+            📊 الإجمالي: ${w.paid + w.remaining} جنيه<br>
+            <button class="edit" onclick="editWorker(${i})">✏️ تعديل</button>
+            <button class="delete" onclick="deleteWorker(${i})">❌ حذف</button>
+        </div>`;
+    });
+
+    summary.innerHTML = `
+    💰 إجمالي المدفوع: ${totalPaid} جنيه <br>
+    📌 إجمالي الباقي: ${totalRemaining} جنيه <br>
+    📊 الكلي: ${totalPaid + totalRemaining} جنيه
+    `;
+}
+
+function exportCSV(){
+    let csv = "الاسم,الوظيفة,المدفوع,الباقي\n";
+    workers.forEach(w=>{
+        csv += `${w.name},${w.job},${w.paid},${w.remaining}\n`;
+    });
+
+    let blob = new Blob([csv], {type: "text/csv"});
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "workers.csv";
+    a.click();
+}
+
+function toggleDark(){
+    document.body.classList.toggle("dark");
+}
+
+// inputs
+const nameInput = document.getElementById("name");
+const jobInput = document.getElementById("job");
+const paidInput = document.getElementById("paid");
+const remainingInput = document.getElementById("remaining");
+
+display();
+</script>
+
+</body>
+</html>
