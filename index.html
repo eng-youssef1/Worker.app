@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <title>إدارة العمال + مهامي</title>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
 body { font-family: Arial; direction: rtl; background:#f0f0f0; padding:10px; transition:.3s;}
 .dark { background:#1e1e1e; color:white;}
@@ -20,8 +23,11 @@ input, select, button {
 button { cursor:pointer;}
 .delete{background:red;color:white;}
 .edit{background:orange;color:white;}
+.export{background:green;color:white;}
 .toggle{background:black;color:white;}
 .nav{display:flex; gap:5px;}
+.summary{background:#ddd;padding:10px;border-radius:10px;}
+.dark .summary{background:#444;}
 .priority-high{border-right:5px solid red;}
 .priority-mid{border-right:5px solid orange;}
 .priority-low{border-right:5px solid green;}
@@ -59,6 +65,14 @@ button { cursor:pointer;}
 
 <button onclick="addWorker()">➕ إضافة</button>
 
+<input type="text" id="search" placeholder="🔍 بحث..." oninput="displayWorkers()">
+
+<div class="summary" id="summary"></div>
+
+<button class="export" onclick="exportPDF()">📄 PDF للحساب</button>
+<button class="export" onclick="exportImage()">🖼️ صورة للحساب</button>
+<button class="export" onclick="shareWhatsApp()">📤 واتساب</button>
+
 <div id="list"></div>
 
 </div>
@@ -88,12 +102,14 @@ button { cursor:pointer;}
 </select>
 
 <div id="progress"></div>
-
 <div id="todoList"></div>
 
 </div>
 
 </div>
+
+<!-- بوكس مخفي -->
+<div id="exportBox" style="position:absolute; left:-9999px; width:300px; background:white; padding:15px;"></div>
 
 <script>
 
@@ -101,9 +117,8 @@ button { cursor:pointer;}
 let workers = JSON.parse(localStorage.getItem("workers")) || [];
 
 function checkJob(){
-    let job = document.getElementById("job").value;
-    document.getElementById("customJob").style.display =
-        job === "other" ? "block" : "none";
+document.getElementById("customJob").style.display =
+document.getElementById("job").value==="other"?"block":"none";
 }
 
 function saveWorkers(){
@@ -111,44 +126,51 @@ localStorage.setItem("workers", JSON.stringify(workers));
 }
 
 function addWorker(){
-let name = document.getElementById("name").value.trim();
-let jobSelect = document.getElementById("job").value;
-let customJob = document.getElementById("customJob").value.trim();
-
-let job = jobSelect === "other" ? customJob : jobSelect;
-
-let paid = +document.getElementById("paid").value || 0;
-let remaining = +document.getElementById("remaining").value || 0;
+let name = name.value.trim();
+let jobSel = job.value;
+let jobFinal = jobSel==="other"?customJob.value.trim():jobSel;
+let paidVal = +paid.value||0;
+let remVal = +remaining.value||0;
 
 if(!name) return alert("اكتب اسم العامل");
-if(!job) return alert("اكتب المهنة");
+if(!jobFinal) return alert("اكتب المهنة");
 
-workers.push({name,job,paid,remaining});
+workers.push({name,job:jobFinal,paid:paidVal,remaining:remVal});
 
 saveWorkers();
 displayWorkers();
 
-document.getElementById("name").value="";
-document.getElementById("customJob").value="";
-document.getElementById("paid").value="";
-document.getElementById("remaining").value="";
-document.getElementById("job").value="نقاش";
-document.getElementById("customJob").style.display="none";
+name.value="";customJob.value="";paid.value="";remaining.value="";
+job.value="نقاش";customJob.style.display="none";
 }
 
 function displayWorkers(){
 let list = document.getElementById("list");
+let search = document.getElementById("search").value.toLowerCase();
+
 list.innerHTML="";
+let totalPaid=0,totalRem=0;
 
 workers.forEach((w,i)=>{
+if(!w.name.toLowerCase().includes(search)) return;
+
+totalPaid+=w.paid;
+totalRem+=w.remaining;
+
 list.innerHTML+=`
 <div class="worker">
 <strong>${w.name}</strong> (${w.job})<br>
-💸 ${w.paid} جنيه | 📌 ${w.remaining} جنيه<br>
-<button class="edit" onclick="editWorker(${i})">✏️ تعديل</button>
-<button class="delete" onclick="deleteWorker(${i})">❌ حذف</button>
+💸 ${w.paid} | 📌 ${w.remaining} | 📊 ${w.paid+w.remaining}
+<button class="edit" onclick="editWorker(${i})">✏️</button>
+<button class="delete" onclick="deleteWorker(${i})">❌</button>
 </div>`;
 });
+
+summary.innerHTML=`
+💰 ${totalPaid} جنيه <br>
+📌 ${totalRem} جنيه <br>
+📊 ${totalPaid+totalRem} جنيه
+`;
 }
 
 function deleteWorker(i){
@@ -160,126 +182,131 @@ displayWorkers();
 }
 
 function editWorker(i){
-let w = workers[i];
-
-document.getElementById("name").value = w.name;
-document.getElementById("paid").value = w.paid;
-document.getElementById("remaining").value = w.remaining;
+let w=workers[i];
+name.value=w.name;
+paid.value=w.paid;
+remaining.value=w.remaining;
 
 if(["نقاش","كهربائي","سباك"].includes(w.job)){
-document.getElementById("job").value = w.job;
-document.getElementById("customJob").style.display="none";
+job.value=w.job;customJob.style.display="none";
 }else{
-document.getElementById("job").value = "other";
-document.getElementById("customJob").style.display="block";
-document.getElementById("customJob").value = w.job;
+job.value="other";customJob.style.display="block";customJob.value=w.job;
 }
 
-deleteWorker(i);
+workers.splice(i,1);
+saveWorkers();
+displayWorkers();
+}
+
+/* ================= تجهيز الحساب ================= */
+function prepareExport(){
+let box=document.getElementById("exportBox");
+
+let totalPaid=0,totalRem=0;
+
+let html="<h3>📊 الحساب الكامل</h3>";
+
+workers.forEach(w=>{
+totalPaid+=w.paid;
+totalRem+=w.remaining;
+
+html+=`
+<p>${w.name} (${w.job})<br>
+💸 ${w.paid} | 📌 ${w.remaining}</p>`;
+});
+
+html+=`
+<hr>
+<p>💰 الإجمالي المدفوع: ${totalPaid}</p>
+<p>📌 الإجمالي الباقي: ${totalRem}</p>
+<p>📊 الكلي: ${totalPaid+totalRem}</p>`;
+
+box.innerHTML=html;
+
+return box;
+}
+
+/* ================= PDF ================= */
+async function exportPDF(){
+const { jsPDF } = window.jspdf;
+let el=prepareExport();
+let canvas=await html2canvas(el);
+let img=canvas.toDataURL("image/png");
+
+let pdf=new jsPDF();
+pdf.addImage(img,"PNG",10,10,180,(canvas.height*180)/canvas.width);
+pdf.save("account.pdf");
+}
+
+/* ================= صورة ================= */
+async function exportImage(){
+let el=prepareExport();
+let canvas=await html2canvas(el);
+let img=canvas.toDataURL("image/png");
+
+let a=document.createElement("a");
+a.href=img;
+a.download="account.png";
+a.click();
+}
+
+/* ================= واتساب ================= */
+async function shareWhatsApp(){
+let text="📊 الحساب:\n";
+
+workers.forEach(w=>{
+text+=`${w.name} (${w.job}) - ${w.paid}/${w.remaining}\n`;
+});
+
+let url="https://wa.me/?text="+encodeURIComponent(text);
+window.open(url,"_blank");
 }
 
 /* ================= TODO ================= */
-let todos = JSON.parse(localStorage.getItem("todos")) || [];
+let todos=JSON.parse(localStorage.getItem("todos"))||[];
 
-function saveTodos(){
-localStorage.setItem("todos", JSON.stringify(todos));
-}
+function saveTodos(){localStorage.setItem("todos",JSON.stringify(todos));}
 
 function addTodo(){
-let text = document.getElementById("todoInput").value.trim();
-let date = document.getElementById("todoDate").value;
-let priority = document.getElementById("priority").value;
+let t=todoInput.value.trim();
+let d=todoDate.value;
+let p=priority.value;
+if(!t) return;
 
-if(!text) return;
-
-todos.push({text,date,priority,done:false});
-
-document.getElementById("todoInput").value="";
-saveTodos();
-showTodos();
+todos.push({text:t,date:d,priority:p,done:false});
+todoInput.value="";
+saveTodos();showTodos();
 }
 
 function showTodos(){
-let list = document.getElementById("todoList");
-let search = document.getElementById("searchTodo").value.toLowerCase();
-let filter = document.getElementById("filter").value;
+let list=todoList;
+let done=0;
 
 list.innerHTML="";
-
-let doneCount=0;
-
 todos.forEach((t,i)=>{
-
-if(!t.text.toLowerCase().includes(search)) return;
-if(filter==="done" && !t.done) return;
-if(filter==="not" && t.done) return;
-
-if(t.done) doneCount++;
-
-let cls = t.priority==="high"?"priority-high":
-t.priority==="mid"?"priority-mid":"priority-low";
+if(t.done) done++;
 
 list.innerHTML+=`
-<div class="todo ${cls}">
-<input type="checkbox" ${t.done?"checked":""}
-onclick="toggleTodo(${i})">
-
-<span style="text-decoration:${t.done?'line-through':'none'}">
+<div class="todo">
+<input type="checkbox" ${t.done?"checked":""} onclick="toggleTodo(${i})">
 ${t.text}
-</span>
-
-<br>📅 ${t.date || "بدون تاريخ"}
-
-<button class="edit" onclick="editTodo(${i})">✏️</button>
-<button class="delete" onclick="deleteTodo(${i})">❌</button>
+<button onclick="deleteTodo(${i})">❌</button>
 </div>`;
 });
 
-let percent = todos.length ? Math.round((doneCount/todos.length)*100) : 0;
-
-document.getElementById("progress").innerHTML =
-`📊 نسبة الإنجاز: ${percent}%`;
+progress.innerHTML=`📊 ${todos.length?Math.round(done/todos.length*100):0}%`;
 }
 
-function toggleTodo(i){
-todos[i].done=!todos[i].done;
-saveTodos();
-showTodos();
-}
-
-function deleteTodo(i){
-todos.splice(i,1);
-saveTodos();
-showTodos();
-}
-
-function editTodo(i){
-let newText = prompt("تعديل المهمة:", todos[i].text);
-if(newText){
-todos[i].text=newText;
-saveTodos();
-showTodos();
-}
-}
+function toggleTodo(i){todos[i].done=!todos[i].done;saveTodos();showTodos();}
+function deleteTodo(i){todos.splice(i,1);saveTodos();showTodos();}
 
 /* ================= NAV ================= */
-function showWorkers(){
-document.getElementById("workersPage").style.display="block";
-document.getElementById("todoPage").style.display="none";
-}
-
-function showTodo(){
-document.getElementById("workersPage").style.display="none";
-document.getElementById("todoPage").style.display="block";
-showTodos();
-}
+function showWorkers(){workersPage.style.display="block";todoPage.style.display="none";}
+function showTodo(){workersPage.style.display="none";todoPage.style.display="block";showTodos();}
 
 /* ================= DARK ================= */
-function toggleDark(){
-document.body.classList.toggle("dark");
-}
+function toggleDark(){document.body.classList.toggle("dark");}
 
-/* ================= INIT ================= */
 displayWorkers();
 showTodos();
 
