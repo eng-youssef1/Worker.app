@@ -2,262 +2,287 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>إدارة العمال</title>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<title>إدارة العمال + مهامي</title>
 
 <style>
-body {
-    font-family: Arial;
-    direction: rtl;
-    background: #f0f0f0;
-    padding: 10px;
-    transition: 0.3s;
-}
-.dark {
-    background: #1e1e1e;
-    color: white;
-}
-.container {
-    max-width: 600px;
-    margin: auto;
-}
+body { font-family: Arial; direction: rtl; background:#f0f0f0; padding:10px; transition:.3s;}
+.dark { background:#1e1e1e; color:white;}
+.container { max-width:600px; margin:auto;}
 input, select, button {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0;
-    border-radius: 8px;
-    border: none;
+    width:100%; padding:10px; margin:5px 0;
+    border-radius:8px; border:none;
 }
-.worker {
-    background: white;
-    padding: 10px;
-    margin-top: 10px;
-    border-radius: 10px;
+.worker, .todo {
+    background:white; padding:10px; margin-top:10px;
+    border-radius:10px;
 }
-.dark .worker {
-    background: #2c2c2c;
-}
-button {
-    cursor: pointer;
-}
-.delete { background: red; color: white; }
-.edit { background: orange; color: white; }
-.export { background: green; color: white; }
-.toggle { background: black; color: white; }
-.summary {
-    background: #ddd;
-    padding: 10px;
-    border-radius: 10px;
-}
-.dark .summary {
-    background: #444;
-}
+.dark .worker, .dark .todo { background:#2c2c2c;}
+button { cursor:pointer;}
+.delete{background:red;color:white;}
+.edit{background:orange;color:white;}
+.toggle{background:black;color:white;}
+.nav{display:flex; gap:5px;}
+.priority-high{border-right:5px solid red;}
+.priority-mid{border-right:5px solid orange;}
+.priority-low{border-right:5px solid green;}
 </style>
 </head>
 
 <body>
 
 <div class="container">
-    <h2>💼 إدارة العمال</h2>
 
-    <input type="text" id="name" placeholder="اسم العامل">
-    
-    <select id="job" onchange="checkJob()">
-        <option value="نقاش">نقاش</option>
-        <option value="كهربائي">كهربائي</option>
-        <option value="سباك">سباك</option>
-        <option value="other">غيره</option>
-    </select>
-
-    <input type="text" id="customJob" placeholder="اكتب المهنة" style="display:none;">
-
-    <input type="number" id="paid" placeholder="المدفوع">
-    <input type="number" id="remaining" placeholder="الباقي">
-
-    <button onclick="addWorker()">➕ إضافة</button>
-
-    <input type="text" id="search" placeholder="🔍 بحث..." oninput="display()">
-
-    <div class="summary" id="summary"></div>
-
-    <button class="export" onclick="exportPDF()">📄 تصدير PDF</button>
-    <button class="export" onclick="exportImage()">🖼️ حفظ كصورة</button>
-    <button class="toggle" onclick="toggleDark()">🌙 Dark Mode</button>
-
-    <div id="list"></div>
+<div class="nav">
+<button onclick="showWorkers()">👷 العمال</button>
+<button onclick="showTodo()">📝 مهامي</button>
+<button class="toggle" onclick="toggleDark()">🌙</button>
 </div>
 
-<!-- بوكس مخفي للتصدير -->
-<div id="exportBox" style="position:absolute; left:-9999px; width:300px; background:white; padding:15px; border-radius:10px;"></div>
+<!-- ================= العمال ================= -->
+<div id="workersPage">
+
+<h2>💼 إدارة العمال</h2>
+
+<input type="text" id="name" placeholder="اسم العامل">
+
+<select id="job" onchange="checkJob()">
+<option value="نقاش">نقاش</option>
+<option value="كهربائي">كهربائي</option>
+<option value="سباك">سباك</option>
+<option value="other">غيره</option>
+</select>
+
+<input type="text" id="customJob" placeholder="اكتب المهنة" style="display:none;">
+
+<input type="number" id="paid" placeholder="المدفوع">
+<input type="number" id="remaining" placeholder="الباقي">
+
+<button onclick="addWorker()">➕ إضافة</button>
+
+<div id="list"></div>
+
+</div>
+
+<!-- ================= TODO ================= -->
+<div id="todoPage" style="display:none">
+
+<h2>📝 مهامي</h2>
+
+<input type="text" id="todoInput" placeholder="اكتب المهمة...">
+<input type="datetime-local" id="todoDate">
+
+<select id="priority">
+<option value="low">منخفض</option>
+<option value="mid">متوسط</option>
+<option value="high">عالي</option>
+</select>
+
+<button onclick="addTodo()">➕ إضافة</button>
+
+<input type="text" id="searchTodo" placeholder="🔍 بحث..." oninput="showTodos()">
+
+<select id="filter" onchange="showTodos()">
+<option value="all">الكل</option>
+<option value="done">تم</option>
+<option value="not">لم يتم</option>
+</select>
+
+<div id="progress"></div>
+
+<div id="todoList"></div>
+
+</div>
+
+</div>
 
 <script>
-let workers = JSON.parse(localStorage.getItem("workers")) || [];
-let editIndex = -1;
-let lastWorker = null;
 
-// inputs
-const nameInput = document.getElementById("name");
-const jobInput = document.getElementById("job");
-const customJobInput = document.getElementById("customJob");
-const paidInput = document.getElementById("paid");
-const remainingInput = document.getElementById("remaining");
+/* ================= العمال ================= */
+let workers = JSON.parse(localStorage.getItem("workers")) || [];
 
 function checkJob(){
-    customJobInput.style.display = jobInput.value === "other" ? "block" : "none";
+    let job = document.getElementById("job").value;
+    document.getElementById("customJob").style.display =
+        job === "other" ? "block" : "none";
 }
 
-function save() {
-    localStorage.setItem("workers", JSON.stringify(workers));
+function saveWorkers(){
+localStorage.setItem("workers", JSON.stringify(workers));
 }
 
-function addWorker() {
-    let name = nameInput.value.trim();
-    let job = jobInput.value === "other" ? customJobInput.value.trim() : jobInput.value;
-    let paid = +paidInput.value || 0;
-    let remaining = +remainingInput.value || 0;
+function addWorker(){
+let name = document.getElementById("name").value.trim();
+let jobSelect = document.getElementById("job").value;
+let customJob = document.getElementById("customJob").value.trim();
 
-    if(name === "") return alert("اكتب اسم العامل");
-    if(job === "") return alert("اكتب المهنة");
+let job = jobSelect === "other" ? customJob : jobSelect;
 
-    let data = {name, job, paid, remaining};
-    lastWorker = data;
+let paid = +document.getElementById("paid").value || 0;
+let remaining = +document.getElementById("remaining").value || 0;
 
-    if(editIndex === -1){
-        workers.push(data);
-    } else {
-        workers[editIndex] = data;
-        editIndex = -1;
-    }
+if(!name) return alert("اكتب اسم العامل");
+if(!job) return alert("اكتب المهنة");
 
-    save();
-    clearInputs();
-    display();
+workers.push({name,job,paid,remaining});
+
+saveWorkers();
+displayWorkers();
+
+document.getElementById("name").value="";
+document.getElementById("customJob").value="";
+document.getElementById("paid").value="";
+document.getElementById("remaining").value="";
+document.getElementById("job").value="نقاش";
+document.getElementById("customJob").style.display="none";
 }
 
-function clearInputs(){
-    nameInput.value = "";
-    jobInput.value = "نقاش";
-    customJobInput.value = "";
-    customJobInput.style.display = "none";
-    paidInput.value = "";
-    remainingInput.value = "";
+function displayWorkers(){
+let list = document.getElementById("list");
+list.innerHTML="";
+
+workers.forEach((w,i)=>{
+list.innerHTML+=`
+<div class="worker">
+<strong>${w.name}</strong> (${w.job})<br>
+💸 ${w.paid} جنيه | 📌 ${w.remaining} جنيه<br>
+<button class="edit" onclick="editWorker(${i})">✏️ تعديل</button>
+<button class="delete" onclick="deleteWorker(${i})">❌ حذف</button>
+</div>`;
+});
 }
 
 function deleteWorker(i){
-    if(confirm("متأكد؟")){
-        workers.splice(i,1);
-        save();
-        display();
-    }
+if(confirm("متأكد؟")){
+workers.splice(i,1);
+saveWorkers();
+displayWorkers();
+}
 }
 
 function editWorker(i){
-    let w = workers[i];
-    nameInput.value = w.name;
-    paidInput.value = w.paid;
-    remainingInput.value = w.remaining;
+let w = workers[i];
 
-    if(["نقاش","كهربائي","سباك"].includes(w.job)){
-        jobInput.value = w.job;
-        customJobInput.style.display = "none";
-    } else {
-        jobInput.value = "other";
-        customJobInput.style.display = "block";
-        customJobInput.value = w.job;
-    }
+document.getElementById("name").value = w.name;
+document.getElementById("paid").value = w.paid;
+document.getElementById("remaining").value = w.remaining;
 
-    lastWorker = w;
-    editIndex = i;
+if(["نقاش","كهربائي","سباك"].includes(w.job)){
+document.getElementById("job").value = w.job;
+document.getElementById("customJob").style.display="none";
+}else{
+document.getElementById("job").value = "other";
+document.getElementById("customJob").style.display="block";
+document.getElementById("customJob").value = w.job;
 }
 
-function display(){
-    let list = document.getElementById("list");
-    let search = document.getElementById("search").value.toLowerCase();
-
-    list.innerHTML = "";
-
-    let totalPaid = 0;
-    let totalRemaining = 0;
-
-    workers.forEach((w,i)=>{
-        if(!w.name.toLowerCase().includes(search)) return;
-
-        totalPaid += w.paid;
-        totalRemaining += w.remaining;
-
-        list.innerHTML += `
-        <div class="worker">
-            <strong>${w.name}</strong> (${w.job})<br>
-            💸 المدفوع: ${w.paid} جنيه<br>
-            📌 الباقي: ${w.remaining} جنيه<br>
-            📊 الإجمالي: ${w.paid + w.remaining} جنيه<br>
-            <button class="edit" onclick="editWorker(${i})">✏️ تعديل</button>
-            <button class="delete" onclick="deleteWorker(${i})">❌ حذف</button>
-        </div>`;
-    });
-
-    summary.innerHTML = `
-    💰 إجمالي المدفوع: ${totalPaid} جنيه <br>
-    📌 إجمالي الباقي: ${totalRemaining} جنيه <br>
-    📊 الكلي: ${totalPaid + totalRemaining} جنيه
-    `;
+deleteWorker(i);
 }
 
-// تجهيز بيانات العامل للتصدير
-function prepareExport(){
-    if(!lastWorker){
-        alert("مفيش عامل للتصدير");
-        return null;
-    }
+/* ================= TODO ================= */
+let todos = JSON.parse(localStorage.getItem("todos")) || [];
 
-    let box = document.getElementById("exportBox");
-
-    box.innerHTML = `
-        <h3>${lastWorker.name}</h3>
-        <p>المهنة: ${lastWorker.job}</p>
-        <p>💸 المدفوع: ${lastWorker.paid} جنيه</p>
-        <p>📌 الباقي: ${lastWorker.remaining} جنيه</p>
-        <p>📊 الإجمالي: ${lastWorker.paid + lastWorker.remaining} جنيه</p>
-    `;
-
-    return box;
+function saveTodos(){
+localStorage.setItem("todos", JSON.stringify(todos));
 }
 
-// PDF
-async function exportPDF(){
-    const { jsPDF } = window.jspdf;
-    let element = prepareExport();
-    if(!element) return;
+function addTodo(){
+let text = document.getElementById("todoInput").value.trim();
+let date = document.getElementById("todoDate").value;
+let priority = document.getElementById("priority").value;
 
-    let canvas = await html2canvas(element);
-    let img = canvas.toDataURL("image/png");
+if(!text) return;
 
-    let pdf = new jsPDF();
-    pdf.addImage(img, "PNG", 10, 10, 180, (canvas.height*180)/canvas.width);
-    pdf.save("worker.pdf");
+todos.push({text,date,priority,done:false});
+
+document.getElementById("todoInput").value="";
+saveTodos();
+showTodos();
 }
 
-// صورة
-async function exportImage(){
-    let element = prepareExport();
-    if(!element) return;
+function showTodos(){
+let list = document.getElementById("todoList");
+let search = document.getElementById("searchTodo").value.toLowerCase();
+let filter = document.getElementById("filter").value;
 
-    let canvas = await html2canvas(element);
-    let img = canvas.toDataURL("image/png");
+list.innerHTML="";
 
-    let a = document.createElement("a");
-    a.href = img;
-    a.download = "worker.png";
-    a.click();
+let doneCount=0;
+
+todos.forEach((t,i)=>{
+
+if(!t.text.toLowerCase().includes(search)) return;
+if(filter==="done" && !t.done) return;
+if(filter==="not" && t.done) return;
+
+if(t.done) doneCount++;
+
+let cls = t.priority==="high"?"priority-high":
+t.priority==="mid"?"priority-mid":"priority-low";
+
+list.innerHTML+=`
+<div class="todo ${cls}">
+<input type="checkbox" ${t.done?"checked":""}
+onclick="toggleTodo(${i})">
+
+<span style="text-decoration:${t.done?'line-through':'none'}">
+${t.text}
+</span>
+
+<br>📅 ${t.date || "بدون تاريخ"}
+
+<button class="edit" onclick="editTodo(${i})">✏️</button>
+<button class="delete" onclick="deleteTodo(${i})">❌</button>
+</div>`;
+});
+
+let percent = todos.length ? Math.round((doneCount/todos.length)*100) : 0;
+
+document.getElementById("progress").innerHTML =
+`📊 نسبة الإنجاز: ${percent}%`;
 }
 
+function toggleTodo(i){
+todos[i].done=!todos[i].done;
+saveTodos();
+showTodos();
+}
+
+function deleteTodo(i){
+todos.splice(i,1);
+saveTodos();
+showTodos();
+}
+
+function editTodo(i){
+let newText = prompt("تعديل المهمة:", todos[i].text);
+if(newText){
+todos[i].text=newText;
+saveTodos();
+showTodos();
+}
+}
+
+/* ================= NAV ================= */
+function showWorkers(){
+document.getElementById("workersPage").style.display="block";
+document.getElementById("todoPage").style.display="none";
+}
+
+function showTodo(){
+document.getElementById("workersPage").style.display="none";
+document.getElementById("todoPage").style.display="block";
+showTodos();
+}
+
+/* ================= DARK ================= */
 function toggleDark(){
-    document.body.classList.toggle("dark");
+document.body.classList.toggle("dark");
 }
 
-display();
+/* ================= INIT ================= */
+displayWorkers();
+showTodos();
+
 </script>
 
 </body>
