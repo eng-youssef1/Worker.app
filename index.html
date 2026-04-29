@@ -8,29 +8,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-body { font-family: Arial; direction: rtl; background:#f0f0f0; padding:10px; transition:.3s;}
-.dark { background:#1e1e1e; color:white;}
-.container { max-width:600px; margin:auto;}
-input, select, button {
-    width:100%; padding:10px; margin:5px 0;
-    border-radius:8px; border:none;
-}
-.worker, .todo {
-    background:white; padding:10px; margin-top:10px;
-    border-radius:10px;
-}
-.dark .worker, .dark .todo { background:#2c2c2c;}
-button { cursor:pointer;}
-.delete{background:red;color:white;}
-.edit{background:orange;color:white;}
-.export{background:green;color:white;}
-.toggle{background:black;color:white;}
-.nav{display:flex; gap:5px;}
-.summary{background:#ddd;padding:10px;border-radius:10px;}
-.dark .summary{background:#444;}
-.priority-high{border-right:5px solid red;}
-.priority-mid{border-right:5px solid orange;}
-.priority-low{border-right:5px solid green;}
+body{font-family:Arial;direction:rtl;background:#f0f0f0;padding:10px;transition:.3s}
+.dark{background:#1e1e1e;color:white}
+.container{max-width:600px;margin:auto}
+input,select,button{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
+.worker,.todo{background:white;padding:10px;margin-top:10px;border-radius:10px}
+.dark .worker,.dark .todo{background:#2c2c2c}
+button{cursor:pointer}
+.delete{background:red;color:white}
+.edit{background:orange;color:white}
+.export{background:green;color:white}
+.toggle{background:black;color:white}
+.nav{display:flex;gap:5px}
+.summary{background:#ddd;padding:10px;border-radius:10px}
+.dark .summary{background:#444}
 </style>
 </head>
 
@@ -58,7 +49,7 @@ button { cursor:pointer;}
 <option value="other">غيره</option>
 </select>
 
-<input type="text" id="customJob" placeholder="اكتب المهنة" style="display:none;">
+<input type="text" id="customJob" placeholder="اكتب المهنة" style="display:none">
 
 <input type="number" id="paid" placeholder="المدفوع">
 <input type="number" id="remaining" placeholder="الباقي">
@@ -93,14 +84,6 @@ button { cursor:pointer;}
 
 <button onclick="addTodo()">➕ إضافة</button>
 
-<input type="text" id="searchTodo" placeholder="🔍 بحث..." oninput="showTodos()">
-
-<select id="filter" onchange="showTodos()">
-<option value="all">الكل</option>
-<option value="done">تم</option>
-<option value="not">لم يتم</option>
-</select>
-
 <div id="progress"></div>
 <div id="todoList"></div>
 
@@ -108,13 +91,17 @@ button { cursor:pointer;}
 
 </div>
 
-<!-- بوكس مخفي -->
-<div id="exportBox" style="position:absolute; left:-9999px; width:300px; background:white; padding:15px;"></div>
+<!-- export box -->
+<div id="exportBox" style="position:absolute;left:-9999px;width:300px;background:white;padding:15px"></div>
 
 <script>
 
-/* ================= العمال ================= */
 let workers = JSON.parse(localStorage.getItem("workers")) || [];
+let todos = JSON.parse(localStorage.getItem("todos")) || [];
+
+let lastWorker = null;
+
+/* ================= العمال ================= */
 
 function checkJob(){
 document.getElementById("customJob").style.display =
@@ -122,54 +109,71 @@ document.getElementById("job").value==="other"?"block":"none";
 }
 
 function saveWorkers(){
-localStorage.setItem("workers", JSON.stringify(workers));
+localStorage.setItem("workers",JSON.stringify(workers));
 }
 
 function addWorker(){
-let name = name.value.trim();
-let jobSel = job.value;
-let jobFinal = jobSel==="other"?customJob.value.trim():jobSel;
-let paidVal = +paid.value||0;
-let remVal = +remaining.value||0;
+
+let nameInput=document.getElementById("name");
+let jobInput=document.getElementById("job");
+let customJobInput=document.getElementById("customJob");
+let paidInput=document.getElementById("paid");
+let remainingInput=document.getElementById("remaining");
+
+let name=nameInput.value.trim();
+let job=jobInput.value==="other"?customJobInput.value.trim():jobInput.value;
+
+let paid=+paidInput.value||0;
+let remaining=+remainingInput.value||0;
 
 if(!name) return alert("اكتب اسم العامل");
-if(!jobFinal) return alert("اكتب المهنة");
+if(!job) return alert("اكتب المهنة");
 
-workers.push({name,job:jobFinal,paid:paidVal,remaining:remVal});
+let data={name,job,paid,remaining};
+
+workers.push(data);
+lastWorker=data;
 
 saveWorkers();
 displayWorkers();
 
-name.value="";customJob.value="";paid.value="";remaining.value="";
-job.value="نقاش";customJob.style.display="none";
+nameInput.value="";
+customJobInput.value="";
+paidInput.value="";
+remainingInput.value="";
+jobInput.value="نقاش";
+customJobInput.style.display="none";
 }
 
 function displayWorkers(){
-let list = document.getElementById("list");
-let search = document.getElementById("search").value.toLowerCase();
+
+let list=document.getElementById("list");
+let search=document.getElementById("search").value.toLowerCase();
 
 list.innerHTML="";
-let totalPaid=0,totalRem=0;
+
+let totalPaid=0,totalRemain=0;
 
 workers.forEach((w,i)=>{
+
 if(!w.name.toLowerCase().includes(search)) return;
 
 totalPaid+=w.paid;
-totalRem+=w.remaining;
+totalRemain+=w.remaining;
 
 list.innerHTML+=`
 <div class="worker">
 <strong>${w.name}</strong> (${w.job})<br>
-💸 ${w.paid} | 📌 ${w.remaining} | 📊 ${w.paid+w.remaining}
+💸 ${w.paid} | 📌 ${w.remaining}
 <button class="edit" onclick="editWorker(${i})">✏️</button>
 <button class="delete" onclick="deleteWorker(${i})">❌</button>
 </div>`;
 });
 
 summary.innerHTML=`
-💰 ${totalPaid} جنيه <br>
-📌 ${totalRem} جنيه <br>
-📊 ${totalPaid+totalRem} جنيه
+💰 المدفوع: ${totalPaid}<br>
+📌 الباقي: ${totalRemain}<br>
+📊 الكلي: ${totalPaid+totalRemain}
 `;
 }
 
@@ -183,14 +187,18 @@ displayWorkers();
 
 function editWorker(i){
 let w=workers[i];
-name.value=w.name;
-paid.value=w.paid;
-remaining.value=w.remaining;
+
+document.getElementById("name").value=w.name;
+document.getElementById("paid").value=w.paid;
+document.getElementById("remaining").value=w.remaining;
 
 if(["نقاش","كهربائي","سباك"].includes(w.job)){
-job.value=w.job;customJob.style.display="none";
+document.getElementById("job").value=w.job;
+document.getElementById("customJob").style.display="none";
 }else{
-job.value="other";customJob.style.display="block";customJob.value=w.job;
+document.getElementById("job").value="other";
+document.getElementById("customJob").style.display="block";
+document.getElementById("customJob").value=w.job;
 }
 
 workers.splice(i,1);
@@ -198,37 +206,34 @@ saveWorkers();
 displayWorkers();
 }
 
-/* ================= تجهيز الحساب ================= */
+/* ================= export ================= */
+
 function prepareExport(){
+
 let box=document.getElementById("exportBox");
 
-let totalPaid=0,totalRem=0;
+let totalPaid=0,totalRemain=0;
 
-let html="<h3>📊 الحساب الكامل</h3>";
+let html="<h3>📊 الحساب</h3>";
 
 workers.forEach(w=>{
 totalPaid+=w.paid;
-totalRem+=w.remaining;
+totalRemain+=w.remaining;
 
-html+=`
-<p>${w.name} (${w.job})<br>
-💸 ${w.paid} | 📌 ${w.remaining}</p>`;
+html+=`<p>${w.name} (${w.job})<br>${w.paid}/${w.remaining}</p>`;
 });
 
-html+=`
-<hr>
-<p>💰 الإجمالي المدفوع: ${totalPaid}</p>
-<p>📌 الإجمالي الباقي: ${totalRem}</p>
-<p>📊 الكلي: ${totalPaid+totalRem}</p>`;
+html+=`<hr>
+💰 ${totalPaid}<br>
+📌 ${totalRemain}<br>
+📊 ${totalPaid+totalRemain}`;
 
 box.innerHTML=html;
-
 return box;
 }
 
-/* ================= PDF ================= */
 async function exportPDF(){
-const { jsPDF } = window.jspdf;
+const { jsPDF }=window.jspdf;
 let el=prepareExport();
 let canvas=await html2canvas(el);
 let img=canvas.toDataURL("image/png");
@@ -238,7 +243,6 @@ pdf.addImage(img,"PNG",10,10,180,(canvas.height*180)/canvas.width);
 pdf.save("account.pdf");
 }
 
-/* ================= صورة ================= */
 async function exportImage(){
 let el=prepareExport();
 let canvas=await html2canvas(el);
@@ -250,45 +254,45 @@ a.download="account.png";
 a.click();
 }
 
-/* ================= واتساب ================= */
-async function shareWhatsApp(){
+function shareWhatsApp(){
+
 let text="📊 الحساب:\n";
 
 workers.forEach(w=>{
-text+=`${w.name} (${w.job}) - ${w.paid}/${w.remaining}\n`;
+text+=`${w.name} (${w.job}) ${w.paid}/${w.remaining}\n`;
 });
 
-let url="https://wa.me/?text="+encodeURIComponent(text);
-window.open(url,"_blank");
+window.open("https://wa.me/?text="+encodeURIComponent(text));
 }
 
 /* ================= TODO ================= */
-let todos=JSON.parse(localStorage.getItem("todos"))||[];
-
-function saveTodos(){localStorage.setItem("todos",JSON.stringify(todos));}
 
 function addTodo(){
-let t=todoInput.value.trim();
-let d=todoDate.value;
-let p=priority.value;
+let t=document.getElementById("todoInput").value.trim();
 if(!t) return;
 
-todos.push({text:t,date:d,priority:p,done:false});
-todoInput.value="";
-saveTodos();showTodos();
+todos.push({text:t,done:false});
+
+localStorage.setItem("todos",JSON.stringify(todos));
+document.getElementById("todoInput").value="";
+showTodos();
 }
 
 function showTodos(){
-let list=todoList;
+
+let list=document.getElementById("todoList");
+list.innerHTML="";
+
 let done=0;
 
-list.innerHTML="";
 todos.forEach((t,i)=>{
+
 if(t.done) done++;
 
 list.innerHTML+=`
 <div class="todo">
-<input type="checkbox" ${t.done?"checked":""} onclick="toggleTodo(${i})">
+<input type="checkbox" ${t.done?"checked":""}
+onclick="toggleTodo(${i})">
 ${t.text}
 <button onclick="deleteTodo(${i})">❌</button>
 </div>`;
@@ -297,16 +301,37 @@ ${t.text}
 progress.innerHTML=`📊 ${todos.length?Math.round(done/todos.length*100):0}%`;
 }
 
-function toggleTodo(i){todos[i].done=!todos[i].done;saveTodos();showTodos();}
-function deleteTodo(i){todos.splice(i,1);saveTodos();showTodos();}
+function toggleTodo(i){
+todos[i].done=!todos[i].done;
+localStorage.setItem("todos",JSON.stringify(todos));
+showTodos();
+}
 
-/* ================= NAV ================= */
-function showWorkers(){workersPage.style.display="block";todoPage.style.display="none";}
-function showTodo(){workersPage.style.display="none";todoPage.style.display="block";showTodos();}
+function deleteTodo(i){
+todos.splice(i,1);
+localStorage.setItem("todos",JSON.stringify(todos));
+showTodos();
+}
 
-/* ================= DARK ================= */
-function toggleDark(){document.body.classList.toggle("dark");}
+/* ================= nav ================= */
 
+function showWorkers(){
+workersPage.style.display="block";
+todoPage.style.display="none";
+displayWorkers();
+}
+
+function showTodo(){
+workersPage.style.display="none";
+todoPage.style.display="block";
+showTodos();
+}
+
+function toggleDark(){
+document.body.classList.toggle("dark");
+}
+
+/* init */
 displayWorkers();
 showTodos();
 
