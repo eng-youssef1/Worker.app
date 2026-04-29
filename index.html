@@ -35,7 +35,7 @@ button{cursor:pointer}
 <button class="toggle" onclick="toggleDark()">🌙</button>
 </div>
 
-<!-- ================= العمال ================= -->
+<!-- العمال -->
 <div id="workersPage">
 
 <h2>💼 إدارة العمال</h2>
@@ -60,38 +60,25 @@ button{cursor:pointer}
 
 <div class="summary" id="summary"></div>
 
-<button class="export" onclick="exportPDF()">📄 PDF للحساب</button>
-<button class="export" onclick="exportImage()">🖼️ صورة للحساب</button>
+<button class="export" onclick="exportPDF()">📄 PDF</button>
+<button class="export" onclick="exportImage()">🖼️ صورة</button>
 <button class="export" onclick="shareWhatsApp()">📤 واتساب</button>
 
 <div id="list"></div>
 
 </div>
 
-<!-- ================= TODO ================= -->
+<!-- TODO -->
 <div id="todoPage" style="display:none">
-
 <h2>📝 مهامي</h2>
-
-<input type="text" id="todoInput" placeholder="اكتب المهمة...">
-<input type="datetime-local" id="todoDate">
-
-<select id="priority">
-<option value="low">منخفض</option>
-<option value="mid">متوسط</option>
-<option value="high">عالي</option>
-</select>
-
-<button onclick="addTodo()">➕ إضافة</button>
-
+<input type="text" id="todoInput">
+<button onclick="addTodo()">➕</button>
 <div id="progress"></div>
 <div id="todoList"></div>
-
 </div>
 
 </div>
 
-<!-- export box -->
 <div id="exportBox" style="position:absolute;left:-9999px;width:300px;background:white;padding:15px"></div>
 
 <script>
@@ -99,11 +86,10 @@ button{cursor:pointer}
 let workers = JSON.parse(localStorage.getItem("workers")) || [];
 let todos = JSON.parse(localStorage.getItem("todos")) || [];
 
-/* ================= العمال ================= */
+/* العمال */
 
 function checkJob(){
-document.getElementById("customJob").style.display =
-document.getElementById("job").value==="other"?"block":"none";
+customJob.style.display = job.value==="other"?"block":"none";
 }
 
 function saveWorkers(){
@@ -112,46 +98,38 @@ localStorage.setItem("workers",JSON.stringify(workers));
 
 function addWorker(){
 
-let nameInput=document.getElementById("name");
-let jobInput=document.getElementById("job");
-let customJobInput=document.getElementById("customJob");
-let paidInput=document.getElementById("paid");
-let remainingInput=document.getElementById("remaining");
+let nameVal=name.value.trim();
+let jobVal=job.value==="other"?customJob.value.trim():job.value;
 
-let name=nameInput.value.trim();
-let job=jobInput.value==="other"?customJobInput.value.trim():jobInput.value;
+let paidVal=+paid.value||0;
+let remainVal=+remaining.value||0;
 
-let paid=+paidInput.value||0;
-let remaining=+remainingInput.value||0;
+if(!nameVal) return alert("اكتب اسم العامل");
+if(!jobVal) return alert("اكتب المهنة");
 
-if(!name) return alert("اكتب اسم العامل");
-if(!job) return alert("اكتب المهنة");
-
-workers.push({name,job,paid,remaining});
+workers.push({name:nameVal,job:jobVal,paid:paidVal,remaining:remainVal});
 
 saveWorkers();
 displayWorkers();
 
-nameInput.value="";
-customJobInput.value="";
-paidInput.value="";
-remainingInput.value="";
-jobInput.value="نقاش";
-customJobInput.style.display="none";
+name.value="";
+customJob.value="";
+paid.value="";
+remaining.value="";
+job.value="نقاش";
+customJob.style.display="none";
 }
 
 function displayWorkers(){
 
-let list=document.getElementById("list");
-let search=document.getElementById("search").value.toLowerCase();
-
 list.innerHTML="";
+let searchVal=search.value.toLowerCase();
 
 let totalPaid=0,totalRemain=0;
 
 workers.forEach((w,i)=>{
 
-if(!w.name.toLowerCase().includes(search)) return;
+if(!w.name.toLowerCase().includes(searchVal)) return;
 
 totalPaid+=w.paid;
 totalRemain+=w.remaining;
@@ -159,17 +137,18 @@ totalRemain+=w.remaining;
 list.innerHTML+=`
 <div class="worker">
 <strong>${w.name}</strong> (${w.job})<br>
-💸 ${w.paid} | 📌 ${w.remaining}
+💸 المدفوع: ${w.paid}<br>
+📌 الباقي: ${w.remaining}
+<br>
 <button class="edit" onclick="editWorker(${i})">✏️</button>
 <button class="delete" onclick="deleteWorker(${i})">❌</button>
 </div>`;
 });
 
-/* ✅ FIXED SUMMARY (الجزء اللي كنت عايزه) */
 summary.innerHTML=`
 💰 إجمالي المدفوع: ${totalPaid}<br>
-📌 المبلغ المتبقي: ${totalRemain}<br>
-📊 إجمالي الحساب: ${totalPaid + totalRemain}
+📌 إجمالي الباقي: ${totalRemain}<br>
+📊 الإجمالي: ${totalPaid+totalRemain}
 `;
 }
 
@@ -184,17 +163,17 @@ displayWorkers();
 function editWorker(i){
 let w=workers[i];
 
-document.getElementById("name").value=w.name;
-document.getElementById("paid").value=w.paid;
-document.getElementById("remaining").value=w.remaining;
+name.value=w.name;
+paid.value=w.paid;
+remaining.value=w.remaining;
 
 if(["نقاش","كهربائي","سباك"].includes(w.job)){
-document.getElementById("job").value=w.job;
-document.getElementById("customJob").style.display="none";
+job.value=w.job;
+customJob.style.display="none";
 }else{
-document.getElementById("job").value="other";
-document.getElementById("customJob").style.display="block";
-document.getElementById("customJob").value=w.job;
+job.value="other";
+customJob.style.display="block";
+customJob.value=w.job;
 }
 
 workers.splice(i,1);
@@ -202,11 +181,11 @@ saveWorkers();
 displayWorkers();
 }
 
-/* ================= export ================= */
+/* export */
 
 function prepareExport(){
 
-let box=document.getElementById("exportBox");
+let box=exportBox;
 
 let totalPaid=0,totalRemain=0;
 
@@ -216,13 +195,20 @@ workers.forEach(w=>{
 totalPaid+=w.paid;
 totalRemain+=w.remaining;
 
-html+=`<p>${w.name} (${w.job})<br>${w.paid}/${w.remaining}</p>`;
+html+=`
+<p>
+👷 ${w.name} (${w.job})<br>
+💸 المدفوع: ${w.paid}<br>
+📌 الباقي: ${w.remaining}
+</p>`;
 });
 
-html+=`<hr>
-💰=المدفوع${totalPaid}<br>
-📌=الباقى ${totalRemain}<br>
-📊= المجموع الكلى${totalPaid+totalRemain}`;
+html+=`
+<hr>
+💰 إجمالي المدفوع: ${totalPaid}<br>
+📌 إجمالي الباقي: ${totalRemain}<br>
+📊 الإجمالي: ${totalPaid+totalRemain}
+`;
 
 box.innerHTML=html;
 return box;
@@ -230,8 +216,7 @@ return box;
 
 async function exportPDF(){
 const { jsPDF }=window.jspdf;
-let el=prepareExport();
-let canvas=await html2canvas(el);
+let canvas=await html2canvas(prepareExport());
 let img=canvas.toDataURL("image/png");
 
 let pdf=new jsPDF();
@@ -240,8 +225,7 @@ pdf.save("account.pdf");
 }
 
 async function exportImage(){
-let el=prepareExport();
-let canvas=await html2canvas(el);
+let canvas=await html2canvas(prepareExport());
 let img=canvas.toDataURL("image/png");
 
 let a=document.createElement("a");
@@ -252,40 +236,40 @@ a.click();
 
 function shareWhatsApp(){
 
-let text="📊 الحساب:\n";
+let text="📊 الحساب:\n\n";
 
 workers.forEach(w=>{
-text+=`${w.name} (${w.job}) ${w.paid}/${w.remaining}\n`;
+text+=`👷 ${w.name} (${w.job})
+💸 المدفوع: ${w.paid}
+📌 الباقي: ${w.remaining}
+
+`;
 });
 
 window.open("https://wa.me/?text="+encodeURIComponent(text));
 }
 
-/* ================= TODO ================= */
+/* todo */
 
 function addTodo(){
-let t=document.getElementById("todoInput").value.trim();
-if(!t) return;
+if(!todoInput.value.trim()) return;
 
-todos.push({text:t,done:false});
-
+todos.push({text:todoInput.value,done:false});
 localStorage.setItem("todos",JSON.stringify(todos));
-document.getElementById("todoInput").value="";
+todoInput.value="";
 showTodos();
 }
 
 function showTodos(){
 
-let list=document.getElementById("todoList");
-list.innerHTML="";
-
+todoList.innerHTML="";
 let done=0;
 
 todos.forEach((t,i)=>{
 
 if(t.done) done++;
 
-list.innerHTML+=`
+todoList.innerHTML+=`
 <div class="todo">
 <input type="checkbox" ${t.done?"checked":""}
 onclick="toggleTodo(${i})">
@@ -309,7 +293,7 @@ localStorage.setItem("todos",JSON.stringify(todos));
 showTodos();
 }
 
-/* ================= nav ================= */
+/* nav */
 
 function showWorkers(){
 workersPage.style.display="block";
