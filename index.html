@@ -99,8 +99,6 @@ button{cursor:pointer}
 let workers = JSON.parse(localStorage.getItem("workers")) || [];
 let todos = JSON.parse(localStorage.getItem("todos")) || [];
 
-let lastWorker = null;
-
 /* ================= العمال ================= */
 
 function checkJob(){
@@ -129,10 +127,7 @@ let remaining=+remainingInput.value||0;
 if(!name) return alert("اكتب اسم العامل");
 if(!job) return alert("اكتب المهنة");
 
-let data={name,job,paid,remaining};
-
-workers.push(data);
-lastWorker=data;
+workers.push({name,job,paid,remaining});
 
 saveWorkers();
 displayWorkers();
@@ -170,10 +165,11 @@ list.innerHTML+=`
 </div>`;
 });
 
+/* ✅ FIXED SUMMARY (الجزء اللي كنت عايزه) */
 summary.innerHTML=`
-💰 المدفوع: ${totalPaid}<br>
-📌 الباقي: ${totalRemain}<br>
-📊 الكلي: ${totalPaid+totalRemain}
+💰 إجمالي المدفوع: ${totalPaid}<br>
+📌 المبلغ المتبقي: ${totalRemain}<br>
+📊 إجمالي الحساب: ${totalPaid + totalRemain}
 `;
 }
 
