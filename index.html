@@ -183,36 +183,27 @@ displayWorkers();
 
 /* export */
 
+// تجهيز بيانات عامل واحد فقط للتصدير
 function prepareExport(){
 
-let box=exportBox;
+    if(!lastWorker){
+        alert("مفيش عامل للتصدير");
+        return null;
+    }
 
-let totalPaid=0,totalRemain=0;
+    let box = document.getElementById("exportBox");
 
-let html="<h3>📊 الحساب</h3>";
+    box.innerHTML = `
+        <h3>${lastWorker.name}</h3>
+        <p>المهنة: ${lastWorker.job}</p>
+        <p>💸 المدفوع: ${lastWorker.paid} جنيه</p>
+        <p>📌 الباقي: ${lastWorker.remaining} جنيه</p>
+        <p>📊 الإجمالي: ${lastWorker.paid + lastWorker.remaining} جنيه</p>
+    `;
 
-workers.forEach(w=>{
-totalPaid+=w.paid;
-totalRemain+=w.remaining;
-
-html+=`
-<p>
-👷 ${w.name} (${w.job})<br>
-💸 المدفوع: ${w.paid}<br>
-📌 الباقي: ${w.remaining}
-</p>`;
-});
-
-html+=`
-<hr>
-💰 إجمالي المدفوع: ${totalPaid}<br>
-📌 إجمالي الباقي: ${totalRemain}<br>
-📊 الإجمالي: ${totalPaid+totalRemain}
-`;
-
-box.innerHTML=html;
-return box;
+    return box;
 }
+
 
 async function exportPDF(){
 const { jsPDF }=window.jspdf;
